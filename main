@@ -1,0 +1,218 @@
+#include <iostream>
+#include <vector>
+
+struct Point {
+	int x = -1;
+	int y = -1;
+
+	bool operator==(const Point& other) const {
+		return x == other.x && y == other.y;
+	}
+
+	bool operator!=(const Point& other) const {
+		return !(*this == other);
+	}
+
+	bool operator<(const Point& other) const {
+		return y < other.y || (y == other.y && x < other.x);
+	}
+};
+
+struct Triangle {
+	Point A;
+	Point B;
+	Point C;
+	Point D;
+
+	bool operator==(const Triangle& other) const {
+		return A == other.A && B == other.B && C == other.C && D == other.D;
+	}
+};
+
+struct Limits {
+	char min_x = 0;
+	char min_y = 0;
+	char max_x = 0;
+	char max_y = 0;
+};
+
+Limits GetLimits(int n, const std::vector<std::vector<short>>& count) {
+	Limits limit;
+	short maximum = n * '.';
+	limit.max_x = limit.max_y = n - 1;
+
+	for (const auto chislo : count[0]) {
+		if (chislo == maximum) {
+			--limit.max_y;
+		}
+		else {
+			break;
+		}
+	}
+
+	for (int y = n - 1; y >= 0; --y) {
+		if (count[0][y] == maximum) {
+			++limit.min_y;
+		}
+		else {
+			break;
+		}
+	}
+
+	for (const auto chislo : count[1]) {
+		if (chislo == maximum) {
+			++limit.min_x;
+		}
+		else {
+			break;
+		}
+	}
+
+	for (int x = n - 1; x >= 0; --x) {
+		if (count[1][x] == maximum) {
+			--limit.max_x;
+		}
+		else {
+			break;
+		}
+	}
+	return limit;
+}
+
+std::vector<Triangle> FindTriangles(char ch, int n, Limits limit, const std::vector<std::vector<char>>& tablo) {
+	std::vector<Triangle> triangles;
+	int number_str = n - 1 - limit.max_y;
+	for (int y = limit.max_y; y >= limit.min_y; --y) {
+		int tmp = 0;
+		std::vector<Triangle> triangles_tmp(n);
+		for (int x = limit.min_x; x <= limit.max_x; ++x) {
+			if (tablo[number_str][x] == ch) {
+				if (triangles_tmp[tmp].A == Point{ -1, -1 }) {
+					triangles_tmp[tmp].A = triangles_tmp[tmp].B = triangles_tmp[tmp].C = triangles_tmp[tmp].D = { x,y };
+				}
+				else if (triangles_tmp[tmp].B.x == x - 1) {
+					triangles_tmp[tmp].B = triangles_tmp[tmp].D = { x,y };
+				}
+			}
+			else {
+				if (triangles_tmp[tmp].A != Point{ -1, -1 }) {
+					bool add = false;
+					if (!triangles.empty()) {
+						for (auto& triangle : triangles) {
+							if (triangle.C.x == triangles_tmp[tmp].C.x && triangle.D.x == triangles_tmp[tmp].D.x
+								&& triangle.C.y == triangles_tmp[tmp].C.y + 1 && triangle.D.y == triangles_tmp[tmp].D.y + 1) {
+								triangle.C.y = triangles_tmp[tmp].C.y;
+								triangle.D.y = triangles_tmp[tmp].D.y;
+								add = true;
+								triangles_tmp[tmp].A = Point{ -1, -1 };
+								break;
+							}
+						}
+					}
+					if (!add) {
+						triangles.push_back(triangles_tmp[tmp]);
+						triangles_tmp[tmp].A = Point{ -1, -1 };
+						++tmp;
+					}
+				}
+				else {
+					++tmp;
+				}
+			}
+			if (tmp != n) {
+				if (x == limit.max_x && triangles_tmp[tmp].A != Point{ -1, -1 }) {
+					bool add = false;
+					if (!triangles.empty()) {
+						for (auto& triangle : triangles) {
+							if (triangle.C.x == triangles_tmp[tmp].C.x && triangle.D.x == triangles_tmp[tmp].D.x
+								&& triangle.C.y == triangles_tmp[tmp].C.y + 1 && triangle.D.y == triangles_tmp[tmp].D.y + 1) {
+								triangle.C.y = triangles_tmp[tmp].C.y;
+								triangle.D.y = triangles_tmp[tmp].D.y;
+								add = true;
+								break;
+							}
+						}
+					}
+					if (!add) {
+						triangles.push_back(std::move(triangles_tmp[tmp]));
+						++tmp;
+					}
+				}
+			}
+		}
+		++number_str;
+	}
+	return triangles;
+}
+
+int main() {
+	int n = 0;
+	std::cin >> n;
+	std::vector<std::vector<char>> tablo(n);
+	std::vector<std::vector<short>> count(2, std::vector<short>(n));
+
+	for (int y = 0; y < n; ++y) {
+		short sum = 0;
+		for (int i = 0; i < n; ++i) {
+			char ch;
+			std::cin >> ch;
+			sum += ch;
+			tablo[y].push_back(ch);
+			count[1][i] += ch; // сумма столбца
+			if (i == n - 1) {
+				count[0][y] = sum; // сумма строки
+			}
+		}
+	}
+
+	Limits limit = GetLimits(n, count);
+
+	std::vector<Triangle> triangles = FindTriangles('.', n, limit, tablo);
+	std::vector<Triangle> triangles_gor = FindTriangles('#', n, limit, tablo);
+
+	if (triangles_gor.size() == 1) {
+		std::cout << 'I';
+	}
+	else if (triangles.size() > 2 || triangles.size() == 0) {
+		std::cout << 'X';
+	}
+	else if (triangles.size() == 1) {
+		const auto& triangle = triangles.back();
+		if (limit.min_x < triangle.C.x && triangle.C.x <= triangle.B.x && triangle.B.x < limit.max_x
+			&& limit.min_y < triangle.C.y && triangle.C.y <= triangle.B.y && triangle.B.y < limit.max_y) {
+			std::cout << 'O';
+		}
+		else if (limit.min_x < triangle.C.x && triangle.C.x <= triangle.B.x && triangle.B.x == limit.max_x &&
+			limit.min_y < triangle.C.y && triangle.C.y <= triangle.B.y && triangle.B.y < limit.max_y) {
+			std::cout << 'C';
+		}
+		else if (limit.min_x < triangle.C.x && triangle.C.x <= triangle.B.x && triangle.B.x == limit.max_x &&
+			limit.min_y < triangle.C.y && triangle.C.y <= triangle.B.y && triangle.B.y == limit.max_y) {
+			std::cout << 'L';
+		}
+		else {
+			std::cout << 'X';
+		}
+	}
+	else {
+		const auto& triangle1 = triangles[0];
+		const auto& triangle2 = triangles.back();
+		if (limit.min_x < triangle1.C.x && triangle1.C.x <= triangle1.B.x && triangle1.B.x < limit.max_x
+			&& limit.min_y < triangle1.C.y && triangle1.C.y <= triangle1.B.y && triangle1.B.y == limit.max_y
+			&& limit.min_x < triangle2.C.x && triangle2.C.x <= triangle2.B.x && triangle2.B.x < limit.max_x
+			&& limit.min_y == triangle2.C.y && triangle2.C.y <= triangle2.B.y && triangle2.B.y < limit.max_y
+			&& triangle1.C.x == triangle2.C.x && triangle1.D.x == triangle1.D.x) {
+			std::cout << 'H';
+		}
+		else if (limit.min_x < triangle1.C.x && triangle1.C.x <= triangle1.B.x && triangle1.B.x < limit.max_x
+			&& limit.min_y < triangle1.C.y && triangle1.C.y <= triangle1.B.y && triangle1.B.y < limit.max_y
+			&& limit.min_x < triangle2.C.x && triangle2.C.x <= triangle2.B.x && triangle2.B.x == limit.max_x
+			&& limit.min_y == triangle2.C.y && triangle2.C.y <= triangle2.B.y && triangle2.B.y < limit.max_y
+			&& triangle1.C.x == triangle2.C.x) {
+			std::cout << 'P';
+			}
+		else {
+			std::cout << 'X';
+		}
+	}
+}
